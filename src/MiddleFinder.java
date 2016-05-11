@@ -7,7 +7,7 @@ import ihs.apcs.spacebattle.commands.*;
 
 public class MiddleFinder extends BasicSpaceship {
     private enum shipState{
-        THRUST,ROTATE,IDLE,BRAKE
+        STARTUP,THRUST,ROTATE,IDLE,BRAKE
     }
     private shipState state;
     private Point midpoint;
@@ -15,42 +15,50 @@ public class MiddleFinder extends BasicSpaceship {
     @Override
     public RegistrationData registerShip(int numImages, int worldWidth, int worldHeight)
     {
-        state = shipState.ROTATE;
+        state = shipState.STARTUP;
         midpoint = new Point(worldWidth/2,worldHeight/2);
-        return new RegistrationData("THE BEES", new Color(0, 255, 0), 0);
+        return new RegistrationData("Battlestar Galactica", new Color(255, 255, 0), 0);
     }
 
     @Override
     public ShipCommand getNextCommand(BasicEnvironment env)
     {
         ObjectStatus ship = env.getShipStatus();
+        double distance = ship.getPosition().getDistanceTo(midpoint);
 
-        switch (state){
+        switch (state) {
+            case STARTUP:
+                state = shipState.THRUST;
+                return new RotateCommand(ship.getPosition().getAngleTo(this.midpoint) - ship.getOrientation());
             case THRUST:
-                if (ship.getPosition().getDistanceTo(midpoint)>100) {
+                distance = ship.getPosition().getDistanceTo(midpoint);
+                if ((ship.getPosition().getAngleTo(this.midpoint) - ship.getOrientation()>3)||(ship.getPosition().getAngleTo(this.midpoint) - ship.getOrientation()<-3)) {
                     state = shipState.ROTATE;
-                    return new ThrustCommand('B',0.1,0.25);
+                    return new IdleCommand(0.00001);
+                } else if (distance>250) {
+                    return new ThrustCommand('B',0.05,.5);
                 } else {
                     state = shipState.BRAKE;
+                    return new IdleCommand(0.00001);
                 }
             case ROTATE:
                 state = shipState.THRUST;
                 return new RotateCommand(ship.getPosition().getAngleTo(this.midpoint) - ship.getOrientation());
             case IDLE:
-                if (ship.getPosition().getAngleTo(this.midpoint)==0)
-                {
-                    state = shipState.THRUST;
+                distance = ship.getPosition().getDistanceTo(midpoint);
+                if(distance <=150){
+                    state = shipState.BRAKE;
+                    return new IdleCommand(0.00001);
                 } else {
-                    state = shipState.ROTATE;
+                    state = shipState.STARTUP;
+                    return new IdleCommand(0.00001);
                 }
             case BRAKE:
-                if (ship.getPosition().getDistanceTo(midpoint)<100) {
-                    return new BrakeCommand(0.0);
-                } else {
-                    state = shipState.THRUST;
-                }
+                state = shipState.IDLE;
+                return new BrakeCommand(0.0);
             default:
-                return new RotateCommand(45);
+                state = shipState.IDLE;
+                return new IdleCommand(0.00001);
         }
     }
 
